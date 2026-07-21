@@ -1,0 +1,5 @@
+select 
+    r.name,
+    r.bio,
+    r.offering
+from reader r;
