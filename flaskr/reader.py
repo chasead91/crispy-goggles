@@ -16,7 +16,7 @@ def show_reader_dashboard():
         db = get_db()
         sessions_query = db.execute(
         """
-            select s.name, se.created_at, se.status
+            select s.name, se.created_at, se.status, se.session_id
             from session se
             left join sitter s on se.sitter_id = s.sitter_id
             where se.reader_id = ?
@@ -64,16 +64,28 @@ def manage_readers():
 
         return jsonify({'message':'Reader created successfully.'})
     elif request_method == 'GET':
-        try:
-            readers_query = db.execute(
+        reader_id = request.args.get('reader_id')
+        if reader_id:
+            sql = """
+                select *
+                from reader
+                where reader_id = ?
             """
+            try:
+                readers_query = db.execute(sql, (reader_id,)).fetchall()
+            except Exception as e:
+                print(f"Database error: {e}")
+                return jsonify({'message': f'Error: {str(e)}'}), 500
+        else:
+            sql = """
                 select *
                 from reader
             """
-            ).fetchall()
-        except Exception as e:
-            print(f"Database error: {e}")
-            return jsonify({'message': f'Error: {str(e)}'}), 500
+            try:
+                readers_query = db.execute(sql).fetchall()
+            except Exception as e:
+                print(f"Database error: {e}")
+                return jsonify({'message': f'Error: {str(e)}'}), 500
         
         readers = [dict(row) for row in readers_query]
         return jsonify(readers)
@@ -112,7 +124,25 @@ def manage_readers():
             print(f"Database error: {e}")
             return jsonify({'message': f'Error: {str(e)}'}), 500
         
-        return jsonify({'message':'reader deleted successfully.'})
+        try:
+            db.execute('delete from session where reader_id = ?',(reader_id,))
+            db.commit()
+        except Exception as e:
+            print(f"Database error: {e}")
+            return jsonify({'message': f'Error: {str(e)}'}), 500
+
+        sql = """
+            select *
+            from reader
+        """
+        try:
+            readers_query = db.execute(sql).fetchall()
+        except Exception as e:
+            print(f"Database error: {e}")
+            return jsonify({'message': f'Error: {str(e)}'}), 500
+        
+        readers = [dict(row) for row in readers_query]
+        return jsonify({'message':'Reader deleted successfully', 'readerData':readers})
         
     else:
         return jsonify({'message':'This endpoint only accepts POST, GET, PATCH, and DELETE requests'})

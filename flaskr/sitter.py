@@ -42,6 +42,9 @@ def manage_sitters():
         sitter_name = data.get('name','')
         reader_list = data.get('reader-list',[])
 
+        if len(reader_list) < 1:
+            return jsonify({'message':'Please include a user list'}), 400
+
         try:
             cursor = db.execute(
             """
@@ -60,13 +63,13 @@ def manage_sitters():
         new_sitter_id = cursor.lastrowid
         create_sessions(new_sitter_id, reader_list)
 
-        return jsonify({'message':'OK'})
+        return jsonify({'message':'Sitter and Sessions Created'}), 201
     elif request_method == 'GET':
         try:
             sitters_query = db.execute(
             """
                 select *
-                from sitter
+                from sitter s
             """
             ).fetchall()
         except Exception as e:
@@ -110,7 +113,26 @@ def manage_sitters():
             print(f"Database error: {e}")
             return jsonify({'message': f'Error: {str(e)}'}), 500
         
-        return jsonify({'message':'Sitter deleted successfully.'})
+        try:
+            db.execute('delete from session where sitter_id = ?',(sitter_id,))
+            db.commit()
+        except Exception as e:
+            print(f"Database error: {e}")
+            return jsonify({'message': f'Error: {str(e)}'}), 500
+
+        try:
+            sitters_query = db.execute(
+            """
+                select *
+                from sitter s
+            """
+            ).fetchall()
+        except Exception as e:
+            print(f"Database error: {e}")
+            return jsonify({'message': f'Error: {str(e)}'}), 500
+        
+        sitters = [dict(row) for row in sitters_query]
+        return jsonify({'message':'Sitter deleted successfully.','sitterData':sitters})
         
     else:
         return jsonify({'message':'This endpoint only accepts POST, GET, PATCH, and DELETE requests'})
